@@ -3,6 +3,6 @@ database:
   dsn: ":memory:"
 
 log:
-  level: "info"
+  level: "debug"
   output: "stdout"
   format: "text"
