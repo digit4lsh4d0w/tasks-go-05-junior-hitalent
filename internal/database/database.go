@@ -1,9 +1,7 @@
 package database
 
 import (
-	"fmt"
-	"hitalent-task/internal/config"
-	"hitalent-task/internal/errors"
+	"task-5/internal/config"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
@@ -11,14 +9,6 @@ import (
 )
 
 func NewDatabase(cfg config.DatabaseConfig) (*gorm.DB, error) {
-	if cfg.Driver == "" {
-		return nil, &errors.DatabaseError{DSN: cfg.DSN, Err: fmt.Errorf("driver is required")}
-	}
-
-	if cfg.DSN == "" {
-		return nil, &errors.DatabaseError{DSN: cfg.DSN, Err: fmt.Errorf("DSN is required")}
-	}
-
 	var db *gorm.DB
 	var err error
 
@@ -28,7 +18,7 @@ func NewDatabase(cfg config.DatabaseConfig) (*gorm.DB, error) {
 	case "sqlite":
 		db, err = gorm.Open(sqlite.Open(cfg.DSN), &gorm.Config{})
 	default:
-		return nil, &errors.DatabaseError{DSN: cfg.DSN, Err: gorm.ErrUnsupportedDriver}
+		return nil, &DatabaseError{DSN: cfg.DSN, Err: gorm.ErrUnsupportedDriver}
 	}
 
 	if err != nil {
