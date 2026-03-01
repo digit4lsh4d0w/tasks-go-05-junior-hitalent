@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -13,6 +14,8 @@ type Config struct {
 }
 
 func (c *Config) Validate() error {
+	var errs []error
+
 	validators := []interface{ Validate() error }{
 		&c.DBConfig,
 		&c.LogConfig,
@@ -20,10 +23,14 @@ func (c *Config) Validate() error {
 
 	for _, v := range validators {
 		if err := v.Validate(); err != nil {
-			return fmt.Errorf("%w: %w", ErrConfigValidation, err)
+			errs = append(errs, err)
 		}
 	}
 
+	// Для возврата одной ошибки ErrConfigValidation
+	if joined := errors.Join(errs...); joined != nil {
+		return fmt.Errorf("%w: %w", ErrConfigValidation, joined)
+	}
 	return nil
 }
 

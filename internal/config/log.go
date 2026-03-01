@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 )
@@ -28,25 +29,27 @@ type LogConfig struct {
 }
 
 func (c *LogConfig) Validate() error {
+	var errs []error
+
 	validLevels := []string{"debug", "info", "warning", "error"}
 	validOutputs := []string{"stdout", "file", "both"}
 	validFormats := []string{"text", "json"}
 
 	if !slices.Contains(validLevels, c.Level) {
-		return &ValidationError{Field: "log.level", Msg: fmt.Sprintf("unknown value %q", c.Level)}
+		errs = append(errs, &ValidationError{Field: "log.level", Msg: fmt.Sprintf("unknown value %q", c.Level)})
 	}
 
 	if !slices.Contains(validOutputs, c.Output) {
-		return &ValidationError{Field: "log.output", Msg: fmt.Sprintf("unknown value %q", c.Output)}
+		errs = append(errs, &ValidationError{Field: "log.output", Msg: fmt.Sprintf("unknown value %q", c.Output)})
 	}
 
 	if !slices.Contains(validFormats, c.Format) {
-		return &ValidationError{Field: "log.format", Msg: fmt.Sprintf("unknown value %q", c.Format)}
+		errs = append(errs, &ValidationError{Field: "log.format", Msg: fmt.Sprintf("unknown value %q", c.Format)})
 	}
 
 	if (c.Output == "file" || c.Output == "both") && c.Path == "" {
-		return &ValidationError{Field: "log.path", Msg: "path is required when output is \"file\" or \"both\""}
+		errs = append(errs, &ValidationError{Field: "log.path", Msg: "path is required when output is \"file\" or \"both\""})
 	}
 
-	return nil
+	return errors.Join(errs...)
 }
