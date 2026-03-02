@@ -34,6 +34,20 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+func defaultConfig() Config {
+	return Config{
+		DBConfig: DBConfig{
+			Driver: "sqlite",
+			DSN:    ":memory:",
+		},
+		LogConfig: LogConfig{
+			Level:  "info",
+			Output: "stdout",
+			Format: "text",
+		},
+	}
+}
+
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -43,7 +57,7 @@ func Load(path string) (*Config, error) {
 		return nil, &ConfigError{Op: "read", Path: path, Err: err}
 	}
 
-	var cfg Config
+	cfg := defaultConfig()
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, &ConfigError{Op: "parse", Path: path, Err: err}
 	}
