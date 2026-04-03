@@ -5,26 +5,26 @@ import (
 	"task-5/internal/repository"
 )
 
-type MessageService struct {
+type messageService struct {
 	repo repository.MessageRepository
 }
 
-func NewMessageService(repo repository.MessageRepository) *MessageService {
-	return &MessageService{repo: repo}
+func NewMessageService(repo repository.MessageRepository) MessageService {
+	return &messageService{repo: repo}
 }
 
-func (s *MessageService) GetAllMsgs() ([]model.Message, error) {
+func (s *messageService) GetAllMsgs() ([]model.Message, error) {
 	return s.repo.FindAll()
 }
 
-func (s *MessageService) GetByID(id uint) (*model.Message, error) {
+func (s *messageService) GetByID(id uint) (*model.Message, error) {
 	return s.repo.FindByID(id)
 }
 
-func (s *MessageService) CreateMessage(msg *model.Message) error {
+func (s *messageService) CreateMessage(msg *model.Message) error {
 	return s.repo.Create(msg)
 }
 
-func (s *MessageService) DeleteMessage(id uint) error {
+func (s *messageService) DeleteMessage(id uint) error {
 	return s.repo.Delete(id)
 }
