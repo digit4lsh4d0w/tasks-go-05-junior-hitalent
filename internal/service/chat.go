@@ -4,14 +4,21 @@ import (
 	"errors"
 
 	"task-5/internal/model"
-	"task-5/internal/repository"
 )
 
-type chatService struct {
-	repo repository.ChatRepository
+type ChatRepository interface {
+	FindAll() ([]model.Chat, error)
+	FindByID(id uint) (*model.Chat, error)
+	Create(chat *model.Chat) error
+	Update(chat *model.Chat) error
+	Delete(id uint) error
 }
 
-func NewChatService(repo repository.ChatRepository) ChatService {
+type chatService struct {
+	repo ChatRepository
+}
+
+func NewChatService(repo ChatRepository) *chatService {
 	return &chatService{repo: repo}
 }
 

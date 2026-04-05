@@ -2,14 +2,21 @@ package service
 
 import (
 	"task-5/internal/model"
-	"task-5/internal/repository"
 )
 
-type messageService struct {
-	repo repository.MessageRepository
+type MessageRepository interface {
+	FindAll() ([]model.Message, error)
+	FindByID(id uint) (*model.Message, error)
+	Create(msg *model.Message) error
+	Update(msg *model.Message) error
+	Delete(id uint) error
 }
 
-func NewMessageService(repo repository.MessageRepository) MessageService {
+type messageService struct {
+	repo MessageRepository
+}
+
+func NewMessageService(repo MessageRepository) *messageService {
 	return &messageService{repo: repo}
 }
 
