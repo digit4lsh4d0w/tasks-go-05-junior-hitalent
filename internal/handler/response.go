@@ -26,6 +26,14 @@ func (h *baseHandler) respondJSON(w http.ResponseWriter, code int, payload any) 
 	}
 }
 
+type successRespones struct {
+	Success string `json:"success"`
+}
+
+func (h *baseHandler) respondSuccess(w http.ResponseWriter, code int, message string) {
+	h.respondJSON(w, code, successRespones{message})
+}
+
 type errorResponse struct {
 	Error string `json:"error"`
 }
