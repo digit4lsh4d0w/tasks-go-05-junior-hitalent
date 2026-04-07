@@ -20,6 +20,7 @@ const (
 
 type ChatService interface {
 	CreateChat(chat *model.Chat) error
+	GetChat(id uint) (*model.Chat, error)
 	GetChatWithMessages(id uint, limit int) (*model.Chat, error)
 	DeleteChat(id uint) error
 	CreateMessage(msg *model.Message) error
@@ -31,6 +32,14 @@ type chatHandler struct {
 	validator *validator.Validate
 }
 
+type CreateChatRequest struct {
+	Title string `json:"title" validate:"required,min=1,max=200"`
+}
+
+type SendMessageRequest struct {
+	Text string `json:"text" validate:"required,min=1,max=5000"`
+}
+
 func NewChatHandler(s ChatService, v *validator.Validate, l log.Logger) *chatHandler {
 	return &chatHandler{
 		baseHandler: NewBaseHandler(l),
@@ -39,8 +48,35 @@ func NewChatHandler(s ChatService, v *validator.Validate, l log.Logger) *chatHan
 	}
 }
 
-type CreateChatRequest struct {
-	Title string `json:"title" validate:"required,min=1,max=200"`
+func parseChatID(r *http.Request) (uint, error) {
+	chatIDStr := r.PathValue("chat_id")
+	chatID, err := strconv.ParseUint(chatIDStr, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint(chatID), nil
+}
+
+func parseLimit(r *http.Request) int {
+	limitStr := r.URL.Query().Get("limit")
+	if limitStr == "" {
+		return limitDefault
+	}
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		return limitDefault
+	}
+
+	if limit <= 0 {
+		return limitDefault
+	}
+
+	if limit > limitMax {
+		return limitMax
+	}
+
+	return limit
 }
 
 func (h *chatHandler) CreateChat(w http.ResponseWriter, r *http.Request) {
@@ -71,39 +107,64 @@ func (h *chatHandler) CreateChat(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusCreated, chat)
 }
 
-func (h *chatHandler) DeleteChat(w http.ResponseWriter, r *http.Request) {}
-
-type SendMessageRequest struct {
-	Text string `json:"text", validate:"required,min=1,max=5000"`
-}
-
-func (h *chatHandler) SendMsg(w http.ResponseWriter, r *http.Request) {}
-
-func parseLimit(r *http.Request) int {
-	limitStr := r.URL.Query().Get("limit")
-	if limitStr == "" {
-		return limitDefault
-	}
-
-	limit, err := strconv.Atoi(limitStr)
+func (h *chatHandler) DeleteChat(w http.ResponseWriter, r *http.Request) {
+	chatID, err := parseChatID(r)
 	if err != nil {
-		return limitDefault
+		h.respondError(w, http.StatusBadRequest, "invalid chat id")
+		return
 	}
 
-	if limit <= 0 {
-		return limitDefault
+	if err = h.service.DeleteChat(chatID); err != nil {
+		h.respondError(w, http.StatusInternalServerError, "failed to delete chat")
+		return
 	}
 
-	if limit > limitMax {
-		return limitMax
-	}
-
-	return limit
+	h.respondSuccess(w, http.StatusNoContent, "chat deleted successfully")
 }
 
-func (h *chatHandler) GetMsgs(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("chat_id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+func (h *chatHandler) CreateMessage(w http.ResponseWriter, r *http.Request) {
+	chatID, err := parseChatID(r)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid chat id")
+		return
+	}
+
+	_, err = h.service.GetChat(uint(chatID))
+	if err != nil {
+		h.respondError(w, http.StatusNotFound, "chat not found")
+		return
+	}
+
+	// Ограничение тела запроса до 2 МебиБайт
+	r.Body = http.MaxBytesReader(w, r.Body, 2*1<<20)
+	defer r.Body.Close()
+
+	var req SendMessageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+
+	if err := h.validator.Struct(req); err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	message := &model.Message{
+		ChatID: uint(chatID),
+		Text:   req.Text,
+	}
+
+	if err := h.service.CreateMessage(message); err != nil {
+		h.respondError(w, http.StatusInternalServerError, "failed to create message")
+		return
+	}
+
+	h.respondJSON(w, http.StatusCreated, message)
+}
+
+func (h *chatHandler) GetAllMessages(w http.ResponseWriter, r *http.Request) {
+	chatID, err := parseChatID(r)
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid chat id")
 		return
@@ -111,7 +172,7 @@ func (h *chatHandler) GetMsgs(w http.ResponseWriter, r *http.Request) {
 
 	limit := parseLimit(r)
 
-	chat, err := h.service.GetChatWithMessages(uint(id), limit)
+	chat, err := h.service.GetChatWithMessages(uint(chatID), limit)
 	if err != nil {
 		// TODO: Исправить протечку абстракции
 		if errors.Is(err, gorm.ErrRecordNotFound) {
