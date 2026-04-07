@@ -1,6 +1,8 @@
 package gorm
 
 import (
+	"errors"
+
 	"task-5/internal/log"
 	"task-5/internal/model"
 
@@ -72,6 +74,11 @@ func (r *chatRepository) Create(chat *model.Chat) error {
 func (r *chatRepository) FindAll() ([]model.Chat, error) {
 	var daoChats []gormChat
 	result := r.db.Find(&daoChats)
+
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, model.ErrNotFound
+	}
+
 	chats := make([]model.Chat, len(daoChats))
 	for i, c := range daoChats {
 		chats[i] = *toModelChat(&c)
@@ -82,6 +89,11 @@ func (r *chatRepository) FindAll() ([]model.Chat, error) {
 func (r *chatRepository) FindByID(id uint) (*model.Chat, error) {
 	var c gormChat
 	result := r.db.First(&c, id)
+
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, model.ErrNotFound
+	}
+
 	return toModelChat(&c), result.Error
 }
 
@@ -90,20 +102,15 @@ func (r *chatRepository) FindByIDWithMessages(id uint, limit int) (*model.Chat, 
 	result := r.db.Preload("Messages", func(db *gorm.DB) *gorm.DB {
 		return db.Order("created_at DESC").Limit(limit)
 	}).First(&c, id)
+
 	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, model.ErrNotFound
+		}
 		return nil, result.Error
 	}
-	return toModelChat(&c), nil
-}
 
-func (r *chatRepository) Update(chat *model.Chat) error {
-	dao := toDAOChat(chat)
-	err := r.db.Save(dao).Error
-	if err == nil {
-		chat.ID = dao.ID
-		chat.CreatedAt = dao.CreatedAt
-	}
-	return err
+	return toModelChat(&c), nil
 }
 
 func (r *chatRepository) Delete(id uint) error {

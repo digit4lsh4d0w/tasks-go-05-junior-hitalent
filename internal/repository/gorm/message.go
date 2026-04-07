@@ -42,13 +42,13 @@ func toDAOMessage(m *model.Message) *gormMessage {
 }
 
 type messageRepository struct {
-	db     *gorm.DB
-	logger log.Logger
+	db  *gorm.DB
+	log log.Logger
 }
 
-func NewMessageRepository(db *gorm.DB, logger log.Logger) *messageRepository {
-	logger.Debug("Creating new message repository", "type", "gorm")
-	return &messageRepository{db, logger}
+func NewMessageRepository(db *gorm.DB, log log.Logger) *messageRepository {
+	log.Debug("Creating new message repository", "type", "gorm")
+	return &messageRepository{db, log}
 }
 
 func (r *messageRepository) Create(msg *model.Message) error {
@@ -81,16 +81,6 @@ func (r *messageRepository) FindByID(id uint) (*model.Message, error) {
 		return nil, result.Error
 	}
 	return toModelMessage(&m), nil
-}
-
-func (r *messageRepository) Update(msg *model.Message) error {
-	dao := toDAOMessage(msg)
-	err := r.db.Save(dao).Error
-	if err != nil {
-		msg.ID = dao.ID
-		msg.CreatedAt = dao.CreatedAt
-	}
-	return err
 }
 
 func (r *messageRepository) Delete(id uint) error {
