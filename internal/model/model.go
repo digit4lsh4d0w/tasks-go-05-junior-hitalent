@@ -8,3 +8,10 @@ type Chat struct {
 	Messages  []Message
 	CreatedAt time.Time
 }
+
+type Message struct {
+	ID        uint
+	ChatID    uint
+	Text      string
+	CreatedAt time.Time
+}
