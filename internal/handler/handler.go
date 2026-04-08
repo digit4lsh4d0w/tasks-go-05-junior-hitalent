@@ -10,7 +10,6 @@ import (
 	"task-5/internal/model"
 
 	"github.com/go-playground/validator"
-	"gorm.io/gorm"
 )
 
 const (
@@ -174,8 +173,7 @@ func (h *chatHandler) GetAllMessages(w http.ResponseWriter, r *http.Request) {
 
 	chat, err := h.service.GetChatWithMessages(chatID, limit)
 	if err != nil {
-		// TODO: Исправить протечку абстракции
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, model.ErrNotFound) {
 			h.respondError(w, http.StatusNotFound, "not found")
 			return
 		}
