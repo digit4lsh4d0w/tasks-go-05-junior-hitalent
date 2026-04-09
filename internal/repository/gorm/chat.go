@@ -114,5 +114,12 @@ func (r *chatRepository) FindByIDWithMessages(id uint, limit int) (*model.Chat, 
 }
 
 func (r *chatRepository) Delete(id uint) error {
-	return r.db.Delete(&gormChat{}, id).Error
+	result := r.db.Delete(&gormChat{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return model.ErrNotFound
+	}
+	return nil
 }
