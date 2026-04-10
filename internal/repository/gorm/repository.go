@@ -9,48 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-type gormChat struct {
-	gorm.Model
-	Title    string        `gorm:"not null"`
-	Messages []gormMessage `gorm:"foreignKey:ChatID;constraint:OnDelete:CASCADE"`
-}
-
-func (gormChat) TableName() string {
-	return "chats"
-}
-
-func toModelChat(c *gormChat) *model.Chat {
-	if c == nil {
-		return nil
-	}
-
-	chat := &model.Chat{
-		ID:        c.ID,
-		Title:     c.Title,
-		CreatedAt: c.CreatedAt,
-	}
-
-	if len(c.Messages) > 0 {
-		chat.Messages = make([]model.Message, len(c.Messages))
-		for i, m := range c.Messages {
-			chat.Messages[i] = *toModelMessage(&m)
-		}
-	}
-
-	return chat
-}
-
-func toDAOChat(m *model.Chat) *gormChat {
-	if m == nil {
-		return nil
-	}
-	c := &gormChat{}
-	c.ID = m.ID
-	c.Title = m.Title
-	c.CreatedAt = m.CreatedAt
-	return c
-}
-
 type chatRepository struct {
 	db  *gorm.DB
 	log log.Logger
@@ -122,4 +80,16 @@ func (r *chatRepository) Delete(id uint) error {
 		return model.ErrNotFound
 	}
 	return nil
+}
+
+func (r *chatRepository) CreateMessage(msg *model.Message) error {
+	dao := toDAOMessage(msg)
+
+	err := r.db.Create(&dao).Error
+	if err == nil {
+		msg.ID = dao.ID
+		msg.CreatedAt = dao.CreatedAt
+	}
+
+	return err
 }
