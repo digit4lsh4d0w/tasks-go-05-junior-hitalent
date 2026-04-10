@@ -1,6 +1,9 @@
 database:
   driver: "sqlite"
-  dsn: ":memory:"
+  # dsn: ":memory:"
+  # Параметр _fk обязателен для включения гарантий СУБД по проверке
+  # существования внешних клюей
+  dsn: "./sqlite3.db?_fk=1"
 
 log:
   level: "debug"
