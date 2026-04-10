@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	limitDefault = 20
-	limitMax     = 100
+	limitDefault = 5
+	limitMax     = 20
 )
 
 type ChatService interface {
