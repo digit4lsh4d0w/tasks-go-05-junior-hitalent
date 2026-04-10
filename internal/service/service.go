@@ -9,27 +9,18 @@ import (
 type ChatRepository interface {
 	FindAll() ([]model.Chat, error)
 	FindByID(id uint) (*model.Chat, error)
+	FindByIDWithMessages(id uint, limit int) (*model.Chat, error)
 	Create(chat *model.Chat) error
 	Delete(id uint) error
-}
-
-type MessageRepository interface {
-	FindAll() ([]model.Message, error)
-	FindByID(id uint) (*model.Message, error)
-	Create(msg *model.Message) error
-	Delete(id uint) error
+	CreateMessage(msg *model.Message) error
 }
 
 type chatService struct {
 	chatRepo ChatRepository
-	msgRepo  MessageRepository
 }
 
-func NewChatService(cr ChatRepository, mr MessageRepository) *chatService {
-	return &chatService{
-		chatRepo: cr,
-		msgRepo:  mr,
-	}
+func NewChatService(chatRepo ChatRepository) *chatService {
+	return &chatService{chatRepo}
 }
 
 func (s *chatService) CreateChat(chat *model.Chat) error {
@@ -48,7 +39,7 @@ func (s *chatService) GetChat(id uint) (*model.Chat, error) {
 }
 
 func (s *chatService) GetChatWithMessages(id uint, limit int) (*model.Chat, error) {
-	return s.chatRepo.FindByID(id)
+	return s.chatRepo.FindByIDWithMessages(id, limit)
 }
 
 func (s *chatService) DeleteChat(id uint) error {
@@ -56,5 +47,5 @@ func (s *chatService) DeleteChat(id uint) error {
 }
 
 func (s *chatService) CreateMessage(message *model.Message) error {
-	return s.msgRepo.Create(message)
+	return s.chatRepo.CreateMessage(message)
 }

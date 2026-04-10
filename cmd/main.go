@@ -42,8 +42,7 @@ func main() {
 	validator := validator.New()
 
 	chatRepo := gorm.NewChatRepository(db, log)
-	msgRepo := gorm.NewMessageRepository(db, log)
-	chatService := service.NewChatService(chatRepo, msgRepo)
+	chatService := service.NewChatService(chatRepo)
 	chatHandler := handler.NewChatHandler(chatService, validator, log.With("handler", "chat"))
 
 	mux := http.NewServeMux()
