@@ -14,9 +14,9 @@ func NewDatabase(cfg config.DBConfig) (*gorm.DB, error) {
 
 	switch cfg.Driver {
 	case "postgres":
-		db, err = gorm.Open(postgres.Open(cfg.DSN), &gorm.Config{})
+		db, err = gorm.Open(postgres.Open(cfg.DSN), &gorm.Config{TranslateError: true})
 	case "sqlite":
-		db, err = gorm.Open(sqlite.Open(cfg.DSN), &gorm.Config{})
+		db, err = gorm.Open(sqlite.Open(cfg.DSN), &gorm.Config{TranslateError: true})
 	default:
 		return nil, &DatabaseError{DSN: cfg.DSN, Err: gorm.ErrUnsupportedDriver}
 	}

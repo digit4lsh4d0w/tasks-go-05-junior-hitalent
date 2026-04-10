@@ -153,11 +153,12 @@ func (h *chatHandler) CreateMessage(w http.ResponseWriter, r *http.Request) {
 	// При этом если при создании таблицы messages с полем chat_id указать,
 	// что поле является внешним ключом к таблице chats, то СУБД будет
 	// предоставлять гарантии существования чата при создании сообщения.
-	_, err = h.service.GetChat(chatID)
-	if err != nil {
-		h.respondError(w, http.StatusNotFound, "chat not found")
-		return
-	}
+	// _, err = h.service.GetChat(chatID)
+	// if err != nil {
+	// 	h.log.Warn("chat not found", "error", err, "chat_id", chatID)
+	// 	h.respondError(w, http.StatusNotFound, "chat not found")
+	// 	return
+	// }
 
 	// Ограничение тела запроса до 2 МебиБайт
 	r.Body = http.MaxBytesReader(w, r.Body, 2*1<<20)
@@ -182,6 +183,12 @@ func (h *chatHandler) CreateMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.CreateMessage(message); err != nil {
+		if errors.Is(err, model.ErrNotFound) {
+			h.log.Warn("chat not found", "error", err)
+			h.respondError(w, http.StatusNotFound, "chat not found")
+			return
+		}
+
 		h.log.Error("failed to create message", "error", err)
 		h.respondError(w, http.StatusInternalServerError, "failed to create message")
 		return

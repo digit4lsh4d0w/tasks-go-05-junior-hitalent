@@ -86,10 +86,15 @@ func (r *chatRepository) CreateMessage(msg *model.Message) error {
 	dao := toDAOMessage(msg)
 
 	err := r.db.Create(&dao).Error
-	if err == nil {
-		msg.ID = dao.ID
-		msg.CreatedAt = dao.CreatedAt
+	if err != nil {
+		if errors.Is(err, gorm.ErrForeignKeyViolated) {
+			return model.ErrNotFound
+		}
+		return err
 	}
 
-	return err
+	msg.ID = dao.ID
+	msg.CreatedAt = dao.CreatedAt
+
+	return nil
 }
