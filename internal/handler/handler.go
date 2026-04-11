@@ -96,11 +96,20 @@ func (h *chatHandler) CreateChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chat := &model.Chat{
-		Title: req.Title,
+	chat, err := model.NewChat(req.Title)
+	if err != nil {
+		h.log.Error("failed to convert chat DTO to model", "error", err)
+		h.respondError(w, http.StatusInternalServerError, "failed to create chat")
+		return
 	}
 
 	if err := h.service.CreateChat(chat); err != nil {
+		if errors.Is(err, model.ErrAlreadyExists) {
+			h.log.Error("chat already exists", "error", err)
+			h.respondError(w, http.StatusConflict, "chat already exists")
+			return
+		}
+
 		h.log.Error("failed to create chat", "error", err)
 		h.respondError(w, http.StatusInternalServerError, "failed to create chat")
 		return
