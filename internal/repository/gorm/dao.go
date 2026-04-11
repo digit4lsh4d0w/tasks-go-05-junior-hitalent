@@ -71,6 +71,7 @@ func toModelMessage(m *gormMessage) *model.Message {
 		ChatID:    m.ChatID,
 		Text:      m.Text,
 		CreatedAt: m.CreatedAt,
+		UpdatedAt: m.UpdatedAt,
 	}
 }
 
