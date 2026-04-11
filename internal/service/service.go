@@ -6,8 +6,6 @@ import (
 
 type ChatRepository interface {
 	Create(chat *model.Chat) error
-	FindAll() ([]model.Chat, error)
-	FindByID(id uint) (*model.Chat, error)
 	FindByIDWithMessages(id uint, limit int) (*model.Chat, error)
 	Delete(id uint) error
 	CreateMessage(msg *model.Message) error
@@ -23,14 +21,6 @@ func NewChatService(chatRepo ChatRepository) *chatService {
 
 func (s *chatService) CreateChat(chat *model.Chat) error {
 	return s.chatRepo.Create(chat)
-}
-
-func (s *chatService) GetAllChats() ([]model.Chat, error) {
-	return s.chatRepo.FindAll()
-}
-
-func (s *chatService) GetChat(id uint) (*model.Chat, error) {
-	return s.chatRepo.FindByID(id)
 }
 
 func (s *chatService) GetChatWithMessages(id uint, limit int) (*model.Chat, error) {

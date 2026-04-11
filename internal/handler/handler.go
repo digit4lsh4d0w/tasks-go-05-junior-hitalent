@@ -19,7 +19,6 @@ const (
 
 type ChatService interface {
 	CreateChat(chat *model.Chat) error
-	GetChat(id uint) (*model.Chat, error)
 	GetChatWithMessages(id uint, limit int) (*model.Chat, error)
 	DeleteChat(id uint) error
 	CreateMessage(msg *model.Message) error

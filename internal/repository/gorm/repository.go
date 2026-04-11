@@ -36,32 +36,6 @@ func (r *chatRepository) Create(chat *model.Chat) error {
 	return err
 }
 
-func (r *chatRepository) FindAll() ([]model.Chat, error) {
-	var daoChats []gormChat
-	result := r.db.Find(&daoChats)
-
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		return nil, model.ErrNotFound
-	}
-
-	chats := make([]model.Chat, len(daoChats))
-	for i, c := range daoChats {
-		chats[i] = *toModelChat(&c)
-	}
-	return chats, result.Error
-}
-
-func (r *chatRepository) FindByID(id uint) (*model.Chat, error) {
-	var c gormChat
-	result := r.db.First(&c, id)
-
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		return nil, model.ErrNotFound
-	}
-
-	return toModelChat(&c), result.Error
-}
-
 func (r *chatRepository) FindByIDWithMessages(id uint, limit int) (*model.Chat, error) {
 	var c gormChat
 	result := r.db.Preload("Messages", func(db *gorm.DB) *gorm.DB {
