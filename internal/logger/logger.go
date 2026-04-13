@@ -1,4 +1,4 @@
-package slog
+package logger
 
 import (
 	"fmt"
@@ -9,15 +9,7 @@ import (
 	"strings"
 
 	"task-5/internal/config"
-	"task-5/internal/log"
 )
-
-var _ log.Logger = (*Logger)(nil)
-
-type Logger struct {
-	*slog.Logger
-	closer io.Closer
-}
 
 func toSlogLevel(l string) slog.Leveler {
 	switch strings.ToLower(l) {
@@ -57,50 +49,38 @@ func newHandler(format string, w io.Writer, opts *slog.HandlerOptions) slog.Hand
 	}
 }
 
-func New(cfg *config.LogConfig) (*Logger, error) {
+func New(cfg *config.LogConfig) (*slog.Logger, func(), error) {
 	opts := &slog.HandlerOptions{
-		// AddSource: true,
 		AddSource: cfg.AddSource,
 		Level:     toSlogLevel(cfg.Level),
 	}
 
 	var handler slog.Handler
-	var closer io.Closer
+	cleanup := func() {}
 
 	switch cfg.Output {
 	case "file":
 		f, err := openLogFile(cfg.Path)
 		if err != nil {
-			return nil, fmt.Errorf("logger: cannot open log file %q: %w", cfg.Path, err)
+			return nil, nil, fmt.Errorf("logger: cannot open log file %q: %w", cfg.Path, err)
 		}
 
 		handler = newHandler(cfg.Format, f, opts)
-		closer = f
+		cleanup = func() { f.Close() }
 	case "both":
 		f, err := openLogFile(cfg.Path)
 		if err != nil {
-			return nil, fmt.Errorf("logger: cannot open log file %q: %w", cfg.Path, err)
+			return nil, nil, fmt.Errorf("logger: cannot open log file %q: %w", cfg.Path, err)
 		}
 
 		handler = slog.NewMultiHandler(
 			newHandler(cfg.Format, os.Stdout, opts),
 			newHandler(cfg.Format, f, opts),
 		)
-		closer = f
+		cleanup = func() { f.Close() }
 	default:
 		handler = newHandler(cfg.Format, os.Stdout, opts)
 	}
 
-	return &Logger{Logger: slog.New(handler), closer: closer}, nil
-}
-
-func (l *Logger) Close() error {
-	if l.closer != nil {
-		return l.closer.Close()
-	}
-	return nil
-}
-
-func (l *Logger) With(args ...any) log.Logger {
-	return &Logger{Logger: l.Logger.With(args...)}
+	return slog.New(handler), cleanup, nil
 }

@@ -1,13 +1,13 @@
 package main
 
 import (
-	"fmt"
+	"log/slog"
 	"net/http"
 
 	"task-5/internal/config"
 	"task-5/internal/db"
 	"task-5/internal/handler"
-	"task-5/internal/log/slog"
+	"task-5/internal/logger"
 	"task-5/internal/middleware"
 	"task-5/internal/repository/gorm"
 	"task-5/internal/service"
@@ -21,29 +21,38 @@ func main() {
 		panic(err)
 	}
 
-	// TODO: Remove in production
-	fmt.Printf("%#v\n", cfg)
-
-	log, err := slog.New(&cfg.LogConfig)
+	logger, cleanup, err := logger.New(&cfg.LogConfig)
 	if err != nil {
 		panic(err)
 	}
-	defer log.Close()
+	defer cleanup()
 
-	log.Info("Starting...")
+	slog.SetDefault(logger)
 
-	log.Debug("Initializing database...")
+	logger.Info(
+		"Starting...",
+		slog.String("endpoint", cfg.Endpoint),
+	)
+
 	db, err := db.NewDatabase(cfg.DBConfig)
 	if err != nil {
-		log.Error("Failed to initialize database", "error", err)
+		logger.Error("Failed to connect to database", slog.String("error", err.Error()))
 		panic(err)
 	}
+	logger.Info("Connected to database")
 
 	validator := validator.New()
 
-	chatRepo := gorm.NewChatRepository(db, log)
-	chatService := service.NewChatService(chatRepo)
-	chatHandler := handler.NewChatHandler(chatService, validator, log.With("handler", "chat"))
+	chatRepo := gorm.NewChatRepository(db)
+	chatService := service.NewChatService(
+		chatRepo,
+		logger.With(slog.String("layer", "service")),
+	)
+	chatHandler := handler.NewChatHandler(
+		chatService,
+		validator,
+		logger.With(slog.String("layer", "transport")),
+	)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /chat/", chatHandler.CreateChat)
@@ -51,7 +60,14 @@ func main() {
 	mux.HandleFunc("GET /chat/{chat_id}/", chatHandler.GetAllMessages)
 	mux.HandleFunc("DELETE /chat/{chat_id}/", chatHandler.DeleteChat)
 
-	handler := middleware.Chain(mux, middleware.Log(log))
+	handler := middleware.Chain(
+		mux,
+		middleware.TraceID(),
+		middleware.Logger(logger.With(slog.String("layer", "middleware"))),
+	)
 
-	log.Error("Server stopped", "error", http.ListenAndServe(":3000", handler))
+	err = http.ListenAndServe(cfg.Endpoint, handler)
+	if err != nil && err != http.ErrServerClosed {
+		logger.Error("Server stopped", slog.String("error", err.Error()))
+	}
 }

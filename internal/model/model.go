@@ -15,7 +15,6 @@ type Chat struct {
 	Title     string
 	Messages  []Message
 	CreatedAt time.Time
-	UpdatedAt time.Time
 }
 
 func NewChat(title string) (*Chat, error) {
@@ -36,7 +35,6 @@ type Message struct {
 	ChatID    uint
 	Text      string
 	CreatedAt time.Time
-	UpdatedAt time.Time
 }
 
 func NewMessage(text string) (*Message, error) {
