@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_ybfxrJX4fy
 createdAt: 2026-04-10T04:14:24.892457949
-updatedAt: 2026-04-10T06:12:44.849876015
+updatedAt: 2026-04-12T09:06:34.202478736
 workspaceId: wk_iE2YPfpxwP
 folderId: null
 authentication: {}
@@ -10,7 +10,7 @@ authenticationType: null
 body:
   text: |-
     {
-      "title": "test"
+      "title": "${[ faker.word.noun() ]}"
     }
 bodyType: application/json
 description: ''

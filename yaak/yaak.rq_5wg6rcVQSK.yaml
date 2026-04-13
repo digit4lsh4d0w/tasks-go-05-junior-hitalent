@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_5wg6rcVQSK
 createdAt: 2026-04-10T04:16:39.881684698
-updatedAt: 2026-04-10T07:51:18.071959568
+updatedAt: 2026-04-13T04:24:08.767622871
 workspaceId: wk_iE2YPfpxwP
 folderId: null
 authentication: {}
@@ -10,7 +10,7 @@ authenticationType: null
 body:
   text: |-
     {
-      "text": "test"
+      "text": "${[ faker.lorem.sentence(options=b64'eyJtaW4iOiAxMCwgIm1heCI6IDMwfQ') ]}"
     }
 bodyType: application/json
 description: ''
@@ -22,5 +22,5 @@ headers:
 method: POST
 name: Create Message
 sortPriority: 1000.0
-url: http://localhost:3000/chat/1/message/
+url: http://localhost:3000/chat/${[ chat_id ]}/message/
 urlParameters: []

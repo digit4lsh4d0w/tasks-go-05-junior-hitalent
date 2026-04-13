@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_uHMCUCk5rq
 createdAt: 2026-04-10T04:20:10.061563847
-updatedAt: 2026-04-10T07:53:14.686151674
+updatedAt: 2026-04-13T04:24:32.046283676
 workspaceId: wk_iE2YPfpxwP
 folderId: null
 authentication: {}
@@ -14,5 +14,5 @@ headers: []
 method: DELETE
 name: Delete Chat with Messages
 sortPriority: 3000.0
-url: http://localhost:3000/chat/1/
+url: http://localhost:3000/chat/${[ chat_id ]}/
 urlParameters: []
