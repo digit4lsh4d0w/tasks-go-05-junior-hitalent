@@ -55,10 +55,10 @@ func main() {
 	)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /chat/", chatHandler.CreateChat)
-	mux.HandleFunc("POST /chat/{chat_id}/message/", chatHandler.CreateMessage)
-	mux.HandleFunc("GET /chat/{chat_id}/", chatHandler.GetAllMessages)
-	mux.HandleFunc("DELETE /chat/{chat_id}/", chatHandler.DeleteChat)
+	mux.HandleFunc("POST /chat", chatHandler.CreateChat)
+	mux.HandleFunc("POST /chat/{chat_id}/message", chatHandler.CreateMessage)
+	mux.HandleFunc("GET /chat/{chat_id}", chatHandler.GetAllMessages)
+	mux.HandleFunc("DELETE /chat/{chat_id}", chatHandler.DeleteChat)
 
 	handler := middleware.Chain(
 		mux,

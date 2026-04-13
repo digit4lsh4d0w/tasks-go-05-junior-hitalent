@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_S7KuFrQRME
 createdAt: 2026-04-10T04:18:02.617959262
-updatedAt: 2026-04-13T04:26:45.794345803
+updatedAt: 2026-04-13T09:00:56.753452525
 workspaceId: wk_iE2YPfpxwP
 folderId: null
 authentication: {}
@@ -14,7 +14,7 @@ headers: []
 method: GET
 name: Get Chat with Messages
 sortPriority: 2000.0
-url: http://localhost:3000/chat/${[ chat_id ]}/
+url: http://localhost:3000/chat/${[ chat_id ]}
 urlParameters:
 - enabled: true
   name: limit
