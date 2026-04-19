@@ -155,9 +155,14 @@ func (h *chatHandler) CreateMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	message := &model.Message{
-		ChatID: chatID,
-		Text:   req.Text,
+	message, err := model.NewMessage(chatID, req.Text)
+	if err != nil {
+		h.logger.WarnContext(r.Context(), "invalid message data",
+			slog.String("chat_id", chatIDStr),
+			slog.String("error", err.Error()),
+		)
+		h.respondError(r.Context(), w, http.StatusUnprocessableEntity, "invalid message data")
+		return
 	}
 
 	if err := h.service.CreateMessage(r.Context(), message); err != nil {

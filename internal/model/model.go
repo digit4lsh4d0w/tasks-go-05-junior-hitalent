@@ -37,13 +37,15 @@ type Message struct {
 	CreatedAt time.Time
 }
 
-func NewMessage(text string) (*Message, error) {
-	if text == "" {
+func NewMessage(chatID uint, text string) (*Message, error) {
+	trimmedText := strings.TrimSpace(text)
+
+	if trimmedText == "" {
 		return nil, ErrMessageTextIsEmpty
 	}
-	if len([]rune(text)) > messageTextMaxLen {
+	if len([]rune(trimmedText)) > messageTextMaxLen {
 		return nil, ErrMessageTextTooLong
 	}
 
-	return &Message{Text: text}, nil
+	return &Message{ChatID: chatID, Text: trimmedText}, nil
 }
