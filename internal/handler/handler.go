@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"log/slog"
 	"net/http"
 
@@ -45,44 +44,23 @@ func (h *chatHandler) CreateChat(w http.ResponseWriter, r *http.Request) {
 
 	var req CreateChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.logger.WarnContext(r.Context(), "failed to decode json body",
-			slog.String("error", err.Error()),
-		)
-		h.respondError(r.Context(), w, http.StatusBadRequest, "invalid json body")
+		h.handleBadRequest(r.Context(), w, err, "invalid json body")
 		return
 	}
 
 	if err := h.validator.Struct(req); err != nil {
-		h.logger.WarnContext(r.Context(), "validation error",
-			slog.String("error", err.Error()),
-		)
-		h.respondError(r.Context(), w, http.StatusBadRequest, "validation error")
+		h.handleValidationError(r.Context(), w, err, "validation error")
 		return
 	}
 
 	chat, err := model.NewChat(req.Title)
 	if err != nil {
-		h.logger.WarnContext(r.Context(), "invalid chat data",
-			slog.String("chat_title", req.Title),
-			slog.String("error", err.Error()),
-		)
-		h.respondError(r.Context(), w, http.StatusUnprocessableEntity, "invalid chat data")
+		h.handleValidationError(r.Context(), w, err, "invalid chat data")
 		return
 	}
 
 	if err := h.service.CreateChat(r.Context(), chat); err != nil {
-		if errors.Is(err, model.ErrAlreadyExists) {
-			h.logger.WarnContext(r.Context(), "chat already exists",
-				slog.String("error", err.Error()),
-			)
-			h.respondError(r.Context(), w, http.StatusConflict, "chat already exists")
-			return
-		}
-
-		h.logger.ErrorContext(r.Context(), "failed to create chat",
-			slog.String("error", err.Error()),
-		)
-		h.respondError(r.Context(), w, http.StatusInternalServerError, "failed to create chat")
+		h.handleError(r.Context(), w, err, "failed to create chat")
 		return
 	}
 
@@ -93,29 +71,16 @@ func (h *chatHandler) DeleteChat(w http.ResponseWriter, r *http.Request) {
 	chatIDStr := r.PathValue("chat_id")
 	chatID, err := parseChatID(chatIDStr)
 	if err != nil {
-		h.logger.WarnContext(r.Context(), "failed to parse chat id",
-			slog.String("chat_id", chatIDStr),
-			slog.String("error", err.Error()),
+		h.handleBadRequest(r.Context(), w, err, "invalid chat id",
+			slog.Uint64("chat_id", uint64(chatID)),
 		)
-		h.respondError(r.Context(), w, http.StatusBadRequest, "invalid chat id")
 		return
 	}
 
 	if err = h.service.DeleteChat(r.Context(), chatID); err != nil {
-		if errors.Is(err, model.ErrNotFound) {
-			h.logger.WarnContext(r.Context(), "chat not found",
-				slog.Uint64("chat_id", uint64(chatID)),
-				slog.String("error", err.Error()),
-			)
-			h.respondError(r.Context(), w, http.StatusNotFound, "chat not found")
-			return
-		}
-
-		h.logger.ErrorContext(r.Context(), "failed to delete chat",
+		h.handleError(r.Context(), w, err, "failed to delete chat",
 			slog.Uint64("chat_id", uint64(chatID)),
-			slog.String("error", err.Error()),
 		)
-		h.respondError(r.Context(), w, http.StatusInternalServerError, "failed to delete chat")
 		return
 	}
 
@@ -126,11 +91,9 @@ func (h *chatHandler) CreateMessage(w http.ResponseWriter, r *http.Request) {
 	chatIDStr := r.PathValue("chat_id")
 	chatID, err := parseChatID(chatIDStr)
 	if err != nil {
-		h.logger.WarnContext(r.Context(), "failed to parse chat id",
-			slog.String("chat_id", chatIDStr),
-			slog.String("error", err.Error()),
+		h.handleBadRequest(r.Context(), w, err, "invalid chat id",
+			slog.Uint64("chat_id", uint64(chatID)),
 		)
-		h.respondError(r.Context(), w, http.StatusBadRequest, "invalid chat id")
 		return
 	}
 
@@ -139,45 +102,33 @@ func (h *chatHandler) CreateMessage(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	var req SendMessageRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.logger.WarnContext(r.Context(), "failed to decode json body",
-			slog.String("error", err.Error()),
+	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.handleBadRequest(r.Context(), w, err, "invalid json body",
+			slog.Uint64("chat_id", uint64(chatID)),
 		)
-		h.respondError(r.Context(), w, http.StatusBadRequest, "invalid json body")
 		return
 	}
 
-	if err := h.validator.Struct(req); err != nil {
-		h.logger.WarnContext(r.Context(), "validation error",
-			slog.String("error", err.Error()),
+	if err = h.validator.Struct(req); err != nil {
+		h.handleValidationError(r.Context(), w, err, "validation error",
+			slog.Uint64("chat_id", uint64(chatID)),
 		)
-		h.respondError(r.Context(), w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	message, err := model.NewMessage(chatID, req.Text)
 	if err != nil {
-		h.logger.WarnContext(r.Context(), "invalid message data",
-			slog.String("chat_id", chatIDStr),
-			slog.String("error", err.Error()),
+		h.handleValidationError(r.Context(), w, err, "invalid message data",
+			slog.Uint64("chat_id", uint64(chatID)),
 		)
 		h.respondError(r.Context(), w, http.StatusUnprocessableEntity, "invalid message data")
 		return
 	}
 
-	if err := h.service.CreateMessage(r.Context(), message); err != nil {
-		if errors.Is(err, model.ErrNotFound) {
-			h.logger.WarnContext(r.Context(), "chat not found",
-				slog.String("error", err.Error()),
-			)
-			h.respondError(r.Context(), w, http.StatusNotFound, "chat not found")
-			return
-		}
-
-		h.logger.ErrorContext(r.Context(), "failed to create message",
-			slog.String("error", err.Error()),
+	if err = h.service.CreateMessage(r.Context(), message); err != nil {
+		h.handleError(r.Context(), w, err, "failed to create message",
+			slog.Uint64("chat_id", uint64(chatID)),
 		)
-		h.respondError(r.Context(), w, http.StatusInternalServerError, "failed to create message")
 		return
 	}
 
@@ -188,11 +139,9 @@ func (h *chatHandler) GetAllMessages(w http.ResponseWriter, r *http.Request) {
 	chatIDStr := r.PathValue("chat_id")
 	chatID, err := parseChatID(chatIDStr)
 	if err != nil {
-		h.logger.WarnContext(r.Context(), "failed to parse chat id",
-			slog.String("chat_id", chatIDStr),
-			slog.String("error", err.Error()),
+		h.handleBadRequest(r.Context(), w, err, "invalid chat id",
+			slog.Uint64("chat_id", uint64(chatID)),
 		)
-		h.respondError(r.Context(), w, http.StatusBadRequest, "invalid chat id")
 		return
 	}
 
@@ -200,20 +149,10 @@ func (h *chatHandler) GetAllMessages(w http.ResponseWriter, r *http.Request) {
 
 	chat, err := h.service.GetChatWithMessages(r.Context(), chatID, limit)
 	if err != nil {
-		if errors.Is(err, model.ErrNotFound) {
-			h.logger.WarnContext(r.Context(), "chat not found",
-				slog.Uint64("chat_id", uint64(chatID)),
-				slog.String("error", err.Error()),
-			)
-			h.respondError(r.Context(), w, http.StatusNotFound, "chat not found")
-			return
-		}
-
-		h.logger.ErrorContext(r.Context(), "failed to get chat with messages",
+		h.handleError(r.Context(), w, err, "failed to get chat with messages",
 			slog.Uint64("chat_id", uint64(chatID)),
-			slog.String("error", err.Error()),
+			slog.Int("limit", limit),
 		)
-		h.respondError(r.Context(), w, http.StatusInternalServerError, "internal error")
 		return
 	}
 

@@ -3,8 +3,11 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
+
+	"task-5/internal/model"
 )
 
 type baseHandler struct {
@@ -40,4 +43,37 @@ type errorResponse struct {
 
 func (h *baseHandler) respondError(ctx context.Context, w http.ResponseWriter, code int, message string) {
 	h.respondJSON(ctx, w, code, errorResponse{message})
+}
+
+// Обработка доменных ошибок
+func (h *baseHandler) handleError(ctx context.Context, w http.ResponseWriter, err error, msg string, args ...any) {
+	args = append(args, slog.String("error", err.Error()))
+
+	switch {
+	case errors.Is(err, model.ErrNotFound):
+		h.logger.WarnContext(ctx, msg, args...)
+		h.respondError(ctx, w, http.StatusNotFound, "not found")
+	case errors.Is(err, model.ErrAlreadyExists):
+		h.logger.WarnContext(ctx, msg, args...)
+		h.respondError(ctx, w, http.StatusConflict, "already exists")
+	default:
+		h.logger.ErrorContext(ctx, msg, args...)
+		h.respondError(ctx, w, http.StatusInternalServerError, "internal server error")
+	}
+}
+
+// Обработка ошибок, связанных с некорректными запросами
+func (h *baseHandler) handleBadRequest(ctx context.Context, w http.ResponseWriter, err error, msg string, args ...any) {
+	args = append(args, slog.String("error", err.Error()))
+
+	h.logger.WarnContext(ctx, msg, args...)
+	h.respondError(ctx, w, http.StatusBadRequest, msg)
+}
+
+// Обработка ошибок валидации
+func (h *baseHandler) handleValidationError(ctx context.Context, w http.ResponseWriter, err error, msg string, args ...any) {
+	args = append(args, slog.String("error", err.Error()))
+
+	h.logger.WarnContext(ctx, msg, args...)
+	h.respondError(ctx, w, http.StatusUnprocessableEntity, msg)
 }
