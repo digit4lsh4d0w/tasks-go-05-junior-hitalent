@@ -3,7 +3,7 @@ model: environment
 id: ev_LVzBkveLFW
 workspaceId: wk_iE2YPfpxwP
 createdAt: 2026-04-10T04:14:17.861141299
-updatedAt: 2026-04-13T04:26:40.960789349
+updatedAt: 2026-04-23T15:58:39.483804407
 name: Global Variables
 public: true
 base: true
@@ -12,7 +12,7 @@ parentId: null
 variables:
 - enabled: true
   name: chat_id
-  value: '1'
+  value: '167'
   id: 7qFAsEACe5
 - enabled: true
   name: message_limit
