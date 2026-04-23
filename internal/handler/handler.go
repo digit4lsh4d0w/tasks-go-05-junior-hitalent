@@ -11,11 +11,6 @@ import (
 	"github.com/go-playground/validator"
 )
 
-const (
-	limitDefault = 5
-	limitMax     = 20
-)
-
 type ChatService interface {
 	CreateChat(ctx context.Context, chat *model.Chat) error
 	GetChatWithMessages(ctx context.Context, id uint, limit int) (*model.Chat, error)
@@ -64,7 +59,7 @@ func (h *chatHandler) CreateChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respondJSON(r.Context(), w, http.StatusCreated, chat)
+	h.respondJSON(r.Context(), w, http.StatusCreated, toChatResponse(*chat))
 }
 
 func (h *chatHandler) DeleteChat(w http.ResponseWriter, r *http.Request) {
@@ -121,7 +116,6 @@ func (h *chatHandler) CreateMessage(w http.ResponseWriter, r *http.Request) {
 		h.handleValidationError(r.Context(), w, err, "invalid message data",
 			slog.Uint64("chat_id", uint64(chatID)),
 		)
-		h.respondError(r.Context(), w, http.StatusUnprocessableEntity, "invalid message data")
 		return
 	}
 
@@ -132,7 +126,7 @@ func (h *chatHandler) CreateMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respondJSON(r.Context(), w, http.StatusCreated, message)
+	h.respondJSON(r.Context(), w, http.StatusCreated, toMessageResponse(*message))
 }
 
 func (h *chatHandler) GetAllMessages(w http.ResponseWriter, r *http.Request) {
@@ -156,5 +150,5 @@ func (h *chatHandler) GetAllMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respondJSON(r.Context(), w, http.StatusOK, chat)
+	h.respondJSON(r.Context(), w, http.StatusOK, toChatDetailResponse(*chat))
 }
