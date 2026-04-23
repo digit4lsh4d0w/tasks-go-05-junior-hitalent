@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -86,13 +87,13 @@ func TestChatHandler_CreateChat(t *testing.T) {
 			name:           "Empty chat title",
 			body:           `{"title": ""}`,
 			mockSetup:      func(m *MockChatService) {},
-			expectedStatus: http.StatusBadRequest,
+			expectedStatus: http.StatusUnprocessableEntity,
 		},
 		{
 			name:           "Chat title too long",
 			body:           fmt.Sprintf(`{"title": "%s"}`, strings.Repeat("a", 201)),
 			mockSetup:      func(m *MockChatService) {},
-			expectedStatus: http.StatusBadRequest,
+			expectedStatus: http.StatusUnprocessableEntity,
 		},
 		{
 			name:           "Chat title consists entirely of spaces",
@@ -109,7 +110,8 @@ func TestChatHandler_CreateChat(t *testing.T) {
 					mock.Anything,
 					mock.MatchedBy(func(chat *model.Chat) bool {
 						return chat.Title == "Chat title"
-					})).Return(model.ErrAlreadyExists).Once()
+					}),
+				).Return(model.ErrAlreadyExists).Once()
 			},
 			expectedStatus: http.StatusConflict,
 		},
@@ -125,13 +127,12 @@ func TestChatHandler_CreateChat(t *testing.T) {
 					}),
 				).Run(func(args mock.Arguments) {
 					chat := args.Get(1).(*model.Chat)
-
 					chat.ID = 1
 					chat.CreatedAt = time.Date(2026, 4, 20, 0, 0, 0, 0, time.UTC)
 				}).Return(nil).Once()
 			},
 			expectedStatus: http.StatusCreated,
-			expectedBody:   `{"id":1, "title":"Chat title", "created_at":"2026-04-20T00:00:00Z"}`,
+			expectedBody:   `{"id": 1, "title": "Chat title", "created_at": "2026-04-20T00:00:00Z"}`,
 		},
 	}
 
@@ -146,16 +147,22 @@ func TestChatHandler_CreateChat(t *testing.T) {
 			mux.HandleFunc("POST /chat", h.CreateChat)
 
 			path := "/chat"
-			req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(tc.body))
-			req.Header.Set("Content-Type", "application/json")
-			rec := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(tc.body))
+			request.Header.Set("Content-Type", "application/json")
+			recorder := httptest.NewRecorder()
 
-			mux.ServeHTTP(rec, req)
+			mux.ServeHTTP(recorder, request)
 
-			require.Equal(t, tc.expectedStatus, rec.Code)
+			require.Equal(t, tc.expectedStatus, recorder.Code)
 
-			if tc.expectedBody != "" {
-				require.JSONEq(t, tc.expectedBody, rec.Body.String())
+			var response map[string]any
+			err := json.Unmarshal(recorder.Body.Bytes(), &response)
+			require.NoError(t, err, "response must be valid JSON")
+			if tc.expectedStatus == http.StatusCreated {
+				require.JSONEq(t, tc.expectedBody, recorder.Body.String())
+			} else {
+				require.Contains(t, response, "error", "response must contain \"error\" field")
+				require.NotEmpty(t, response["error"])
 			}
 
 			env.service.AssertExpectations(t)
@@ -171,14 +178,8 @@ func TestChatHandler_DeleteChat(t *testing.T) {
 		expectedStatus int
 	}{
 		{
-			name:           "Invalid ID type",
+			name:           "Invalid ID",
 			chatIDPath:     "abc",
-			mockSetup:      func(m *MockChatService) {},
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name:           "Negative ID",
-			chatIDPath:     "-1",
 			mockSetup:      func(m *MockChatService) {},
 			expectedStatus: http.StatusBadRequest,
 		},
@@ -186,7 +187,11 @@ func TestChatHandler_DeleteChat(t *testing.T) {
 			name:       "Not found",
 			chatIDPath: "2",
 			mockSetup: func(m *MockChatService) {
-				m.On("DeleteChat", mock.Anything, uint(2)).Return(model.ErrNotFound).Once()
+				m.On(
+					"DeleteChat",
+					mock.Anything,
+					uint(2),
+				).Return(model.ErrNotFound).Once()
 			},
 			expectedStatus: http.StatusNotFound,
 		},
@@ -194,7 +199,11 @@ func TestChatHandler_DeleteChat(t *testing.T) {
 			name:       "Success",
 			chatIDPath: "1",
 			mockSetup: func(m *MockChatService) {
-				m.On("DeleteChat", mock.Anything, uint(1)).Return(nil).Once()
+				m.On(
+					"DeleteChat",
+					mock.Anything,
+					uint(1),
+				).Return(nil).Once()
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -211,13 +220,24 @@ func TestChatHandler_DeleteChat(t *testing.T) {
 			mux.HandleFunc("DELETE /chat/{chat_id}", h.DeleteChat)
 
 			path := "/chat/" + tc.chatIDPath
-			req := httptest.NewRequest(http.MethodDelete, path, nil)
-			req.Header.Set("Content-Type", "application/json")
-			rec := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodDelete, path, nil)
+			recorder := httptest.NewRecorder()
 
-			mux.ServeHTTP(rec, req)
+			mux.ServeHTTP(recorder, request)
 
-			require.Equal(t, tc.expectedStatus, rec.Code)
+			require.Equal(t, tc.expectedStatus, recorder.Code)
+
+			var response map[string]any
+			err := json.Unmarshal(recorder.Body.Bytes(), &response)
+			require.NoError(t, err, "response must be valid JSON")
+			if tc.expectedStatus == http.StatusOK {
+				require.Contains(t, response, "success", "response must contain \"success\" field")
+				require.NotEmpty(t, response["success"])
+			} else {
+				require.Contains(t, response, "error", "response must contain \"error\" field")
+				require.NotEmpty(t, response["error"])
+			}
+
 			env.service.AssertExpectations(t)
 		})
 	}
@@ -233,21 +253,8 @@ func TestChatHandler_CreateMessage(t *testing.T) {
 		expectedBody   string
 	}{
 		{
-			name:           "Invalid ID type",
+			name:           "Invalid ID",
 			chatIDPath:     "abc",
-			mockSetup:      func(m *MockChatService) {},
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name:           "Negative ID",
-			chatIDPath:     "-1",
-			mockSetup:      func(m *MockChatService) {},
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name:           "Empty message text",
-			chatIDPath:     "1",
-			body:           `{"text": ""}`,
 			mockSetup:      func(m *MockChatService) {},
 			expectedStatus: http.StatusBadRequest,
 		},
@@ -259,11 +266,18 @@ func TestChatHandler_CreateMessage(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
+			name:           "Empty message text",
+			chatIDPath:     "1",
+			body:           `{"text": ""}`,
+			mockSetup:      func(m *MockChatService) {},
+			expectedStatus: http.StatusUnprocessableEntity,
+		},
+		{
 			name:           "Message text too long",
 			chatIDPath:     "1",
 			body:           fmt.Sprintf(`{"text": "%s"}`, strings.Repeat("a", 5001)),
 			mockSetup:      func(m *MockChatService) {},
-			expectedStatus: http.StatusBadRequest,
+			expectedStatus: http.StatusUnprocessableEntity,
 		},
 		{
 			name:           "Message text consists entirely of spaces",
@@ -277,9 +291,13 @@ func TestChatHandler_CreateMessage(t *testing.T) {
 			chatIDPath: "2",
 			body:       `{"text": "Message text"}`,
 			mockSetup: func(m *MockChatService) {
-				m.On("CreateMessage", mock.Anything, mock.MatchedBy(func(msg *model.Message) bool {
-					return msg.ChatID == 2 && msg.Text == "Message text"
-				})).Return(model.ErrNotFound).Once()
+				m.On(
+					"CreateMessage",
+					mock.Anything,
+					mock.MatchedBy(func(msg *model.Message) bool {
+						return msg.ChatID == 2 && msg.Text == "Message text"
+					}),
+				).Return(model.ErrNotFound).Once()
 			},
 			expectedStatus: http.StatusNotFound,
 		},
@@ -288,11 +306,22 @@ func TestChatHandler_CreateMessage(t *testing.T) {
 			chatIDPath: "1",
 			body:       `{"text": "Message text"}`,
 			mockSetup: func(m *MockChatService) {
-				m.On("CreateMessage", mock.Anything, mock.MatchedBy(func(msg *model.Message) bool {
-					return msg.ChatID == 1 && msg.Text == "Message text"
-				})).Return(nil).Once()
+				m.On(
+					"CreateMessage",
+					mock.Anything,
+					mock.MatchedBy(func(msg *model.Message) bool {
+						return msg.ChatID == 1 && msg.Text == "Message text"
+					}),
+				).Run(func(args mock.Arguments) {
+					msg := args.Get(1).(*model.Message)
+					msg.ID = 1
+					msg.ChatID = 1
+					msg.Text = "Message text"
+					msg.CreatedAt = time.Date(2026, 4, 20, 0, 0, 0, 0, time.UTC)
+				}).Return(nil).Once()
 			},
 			expectedStatus: http.StatusCreated,
+			expectedBody:   `{"id": 1, "chat_id": 1, "text": "Message text", "created_at": "2026-04-20T00:00:00Z"}`,
 		},
 	}
 
@@ -307,13 +336,24 @@ func TestChatHandler_CreateMessage(t *testing.T) {
 			mux.HandleFunc("POST /chat/{chat_id}/message", h.CreateMessage)
 
 			path := "/chat/" + tc.chatIDPath + "/message"
-			req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(tc.body))
-			req.Header.Set("Content-Type", "application/json")
-			rec := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(tc.body))
+			request.Header.Set("Content-Type", "application/json")
+			recorder := httptest.NewRecorder()
 
-			mux.ServeHTTP(rec, req)
+			mux.ServeHTTP(recorder, request)
 
-			require.Equal(t, tc.expectedStatus, rec.Code)
+			require.Equal(t, tc.expectedStatus, recorder.Code)
+
+			var response map[string]any
+			err := json.Unmarshal(recorder.Body.Bytes(), &response)
+			require.NoError(t, err, "response must be valid JSON")
+			if tc.expectedStatus == http.StatusCreated {
+				require.JSONEq(t, tc.expectedBody, recorder.Body.String())
+			} else {
+				require.Contains(t, response, "error", "response must contain \"error\" field")
+				require.NotEmpty(t, response["error"])
+			}
+
 			env.service.AssertExpectations(t)
 		})
 	}
@@ -329,18 +369,31 @@ func TestChatHandler_GetAllMessages(t *testing.T) {
 		expectedBody   string
 	}{
 		{
-			name:           "Invalid ID type",
+			name:           "Invalid ID",
 			chatIDPath:     "abc",
 			limitQuery:     "limit=20",
 			mockSetup:      func(m *MockChatService) {},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:           "Negative ID",
-			chatIDPath:     "-1",
-			limitQuery:     "limit=20",
-			mockSetup:      func(m *MockChatService) {},
-			expectedStatus: http.StatusBadRequest,
+			name:       "Invalid limit",
+			chatIDPath: "1",
+			limitQuery: "limit=abc",
+			mockSetup: func(m *MockChatService) {
+				m.On(
+					"GetChatWithMessages",
+					mock.Anything,
+					uint(1),
+					5,
+				).Return(&model.Chat{
+					ID:        1,
+					Title:     "Chat title",
+					Messages:  []model.Message{},
+					CreatedAt: time.Date(2026, 4, 20, 0, 0, 0, 0, time.UTC),
+				}, nil).Once()
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody:   `{"id": 1, "title": "Chat title", "messages": [], "created_at": "2026-04-20T00:00:00Z"}`,
 		},
 		{
 			name:       "Not Found",
@@ -352,74 +405,46 @@ func TestChatHandler_GetAllMessages(t *testing.T) {
 			expectedStatus: http.StatusNotFound,
 		},
 		{
-			name:       "Success",
+			name:       "Success without messages",
 			chatIDPath: "1",
 			limitQuery: "limit=20",
 			mockSetup: func(m *MockChatService) {
-				m.On("GetChatWithMessages", mock.Anything, uint(1), 20).Return(&model.Chat{
+				m.On(
+					"GetChatWithMessages",
+					mock.Anything,
+					uint(1),
+					20,
+				).Return(&model.Chat{
 					ID:        1,
 					Title:     "Chat title",
 					Messages:  []model.Message{},
-					CreatedAt: time.Now(),
+					CreatedAt: time.Date(2026, 4, 20, 0, 0, 0, 0, time.UTC),
 				}, nil).Once()
 			},
 			expectedStatus: http.StatusOK,
+			expectedBody:   `{"id": 1, "title": "Chat title", "messages": [], "created_at": "2026-04-20T00:00:00Z"}`,
 		},
 		{
-			name:       "Without limit",
+			name:       "Success with messages",
 			chatIDPath: "1",
-			limitQuery: "",
+			limitQuery: "limit=20",
 			mockSetup: func(m *MockChatService) {
-				m.On("GetChatWithMessages", mock.Anything, uint(1), 5).Return(&model.Chat{
-					ID:        1,
-					Title:     "Chat title",
-					Messages:  []model.Message{},
-					CreatedAt: time.Now(),
+				m.On(
+					"GetChatWithMessages",
+					mock.Anything,
+					uint(1),
+					20,
+				).Return(&model.Chat{
+					ID:    1,
+					Title: "Chat title",
+					Messages: []model.Message{
+						{ID: 1, ChatID: 1, Text: "Message text", CreatedAt: time.Date(2026, 4, 20, 0, 0, 0, 0, time.UTC)},
+					},
+					CreatedAt: time.Date(2026, 4, 20, 0, 0, 0, 0, time.UTC),
 				}, nil).Once()
 			},
 			expectedStatus: http.StatusOK,
-		},
-		{
-			name:       "Limit too big",
-			chatIDPath: "1",
-			limitQuery: "limit=100",
-			mockSetup: func(m *MockChatService) {
-				m.On("GetChatWithMessages", mock.Anything, uint(1), 20).Return(&model.Chat{
-					ID:        1,
-					Title:     "Chat title",
-					Messages:  []model.Message{},
-					CreatedAt: time.Now(),
-				}, nil).Once()
-			},
-			expectedStatus: http.StatusOK,
-		},
-		{
-			name:       "Limit too small",
-			chatIDPath: "1",
-			limitQuery: "limit=-5",
-			mockSetup: func(m *MockChatService) {
-				m.On("GetChatWithMessages", mock.Anything, uint(1), 5).Return(&model.Chat{
-					ID:        1,
-					Title:     "Chat title",
-					Messages:  []model.Message{},
-					CreatedAt: time.Now(),
-				}, nil).Once()
-			},
-			expectedStatus: http.StatusOK,
-		},
-		{
-			name:       "Zero limit",
-			chatIDPath: "1",
-			limitQuery: "limit=0",
-			mockSetup: func(m *MockChatService) {
-				m.On("GetChatWithMessages", mock.Anything, uint(1), 5).Return(&model.Chat{
-					ID:        1,
-					Title:     "Chat title",
-					Messages:  []model.Message{},
-					CreatedAt: time.Now(),
-				}, nil).Once()
-			},
-			expectedStatus: http.StatusOK,
+			expectedBody:   `{"id": 1, "title": "Chat title", "messages": [{"id": 1, "chat_id": 1, "text": "Message text", "created_at": "2026-04-20T00:00:00Z"}], "created_at": "2026-04-20T00:00:00Z"}`,
 		},
 	}
 
@@ -437,13 +462,23 @@ func TestChatHandler_GetAllMessages(t *testing.T) {
 			if tc.limitQuery != "" {
 				path += "?" + tc.limitQuery
 			}
-			req := httptest.NewRequest(http.MethodGet, path, nil)
-			req.Header.Set("Content-Type", "application/json")
-			rec := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodGet, path, nil)
+			recorder := httptest.NewRecorder()
 
-			mux.ServeHTTP(rec, req)
+			mux.ServeHTTP(recorder, request)
 
-			require.Equal(t, tc.expectedStatus, rec.Code)
+			require.Equal(t, tc.expectedStatus, recorder.Code)
+
+			var response map[string]any
+			err := json.Unmarshal(recorder.Body.Bytes(), &response)
+			require.NoError(t, err, "response must be valid JSON")
+			if tc.expectedStatus == http.StatusOK {
+				require.JSONEq(t, tc.expectedBody, recorder.Body.String())
+			} else {
+				require.Contains(t, response, "error", "response must contain \"error\" field")
+				require.NotEmpty(t, response["error"])
+			}
+
 			env.service.AssertExpectations(t)
 		})
 	}

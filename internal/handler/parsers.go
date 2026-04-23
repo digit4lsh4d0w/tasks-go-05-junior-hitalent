@@ -2,6 +2,11 @@ package handler
 
 import "strconv"
 
+const (
+	limitDefault = 5
+	limitMax     = 20
+)
+
 func parseChatID(chatIDStr string) (uint, error) {
 	chatID, err := strconv.ParseUint(chatIDStr, 10, 32)
 	if err != nil {
