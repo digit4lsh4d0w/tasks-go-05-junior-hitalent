@@ -1,0 +1,21 @@
+# VCS
+.git
+.gitignore
+
+# SQLite3
+*.db
+*.db-shm
+*.db-wal
+
+# Migrations
+migrations/
+
+# Docs and texts
+*.md
+*.yaml
+docs/
+yaak/
+
+# Docker
+Dockerfile
+.dockerignore
